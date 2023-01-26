@@ -11,8 +11,6 @@ namespace DuckSeason_bHaptics
     public class DuckSeason_bHaptics : MelonMod
     {
         public static TactsuitVR tactsuitVr;
-        public static bool playerRightHanded = true;
-        public static bool forceTubeConnected = false;
 
         public override void OnApplicationStart()
         {
@@ -32,57 +30,66 @@ namespace DuckSeason_bHaptics
             Thread.Sleep(10000);
         }
 
-        private static KeyValuePair<float, float> getAngleAndShift(Transform player, Vector3 hit)
+        public static bool isRightHanded()
         {
-            // bhaptics pattern starts in the front, then rotates to the left. 0° is front, 90° is left, 270° is right.
-            // y is "up", z is "forward" in local coordinates
-            Vector3 patternOrigin = new Vector3(0f, 0f, 1f);
-            Vector3 hitPosition = hit - player.position;
-            Quaternion myPlayerRotation = player.rotation;
-            Vector3 playerDir = myPlayerRotation.eulerAngles;
-            // get rid of the up/down component to analyze xz-rotation
-            Vector3 flattenedHit = new Vector3(hitPosition.x, 0f, hitPosition.z);
-
-            // get angle. .Net < 4.0 does not have a "SignedAngle" function...
-            float hitAngle = Vector3.Angle(flattenedHit, patternOrigin);
-            // check if cross product points up or down, to make signed angle myself
-            Vector3 crossProduct = Vector3.Cross(flattenedHit, patternOrigin);
-            if (crossProduct.y < 0f) { hitAngle *= -1f; }
-            // relative to player direction
-            float myRotation = hitAngle - playerDir.y;
-            // switch directions (bhaptics angles are in mathematically negative direction)
-            myRotation *= -1f;
-            // convert signed angle into [0, 360] rotation
-            if (myRotation < 0f) { myRotation = 360f + myRotation; }
-
-
-            // up/down shift is in y-direction
-            // in Battle Sister, the torso Transform has y=0 at the neck,
-            // and the torso ends at roughly -0.5 (that's in meters)
-            // so cap the shift to [-0.5, 0]...
-            float hitShift = hitPosition.y;
-            //tactsuitVr.LOG("HitShift: " + hitShift.ToString());
-            float upperBound = 0.5f;
-            float lowerBound = -0.5f;
-            if (hitShift > upperBound) { hitShift = 0.5f; }
-            else if (hitShift < lowerBound) { hitShift = -0.5f; }
-            // ...and then spread/shift it to [-0.5, 0.5], which is how bhaptics expects it
-            else { hitShift = (hitShift - lowerBound) / (upperBound - lowerBound) - 0.5f; }
-
-            // No tuple returns available in .NET < 4.0, so this is the easiest quickfix
-            return new KeyValuePair<float, float>(myRotation, hitShift);
+            return DuckSeasonManager.instance.isRightHanded;
         }
-
-        /*
-        [HarmonyPatch(typeof(BaseGameController), "OnSlowTime", new Type[] { typeof(float) })]
-        public class bhaptics_SlowTime
+                
+        [HarmonyPatch(typeof(AudioControl), "FireAudio")]
+        public class bhaptics_Shoot
         {
             [HarmonyPostfix]
-            public static void Postfix(BaseGameController __instance)
+            public static void Postfix(bool reverbDir)
             {
-                tactsuitVr.PlaybackHaptics("SloMo");
+                MelonLogger.Msg(isRightHanded());
+                tactsuitVr.PlaybackHaptics("RecoilVest_" +
+                    (isRightHanded() ? "R" : "L"));
+                tactsuitVr.PlaybackHaptics("RecoilArm_" +
+                    (isRightHanded() ? "R" : "L"));
+                ForceTubeVRInterface.Shoot(255, 255, 50f, ForceTubeVRChannel.pistol1);
             }
         }
-        */
+        
+        [HarmonyPatch(typeof(AudioControl), "RackBackSound")]
+        public class bhaptics_Pump1
+        {
+            [HarmonyPostfix]
+            public static void Postfix()
+            {
+                tactsuitVr.PlaybackHaptics("RecoilVest_" +
+                    (isRightHanded() ? "L" : "R"), 0.5f);
+                tactsuitVr.PlaybackHaptics("RecoilArm_" +
+                    (isRightHanded() ? "L" : "R"), 0.5f);
+            }
+        }
+
+        [HarmonyPatch(typeof(AudioControl), "RackForwardSound")]
+        public class bhaptics_Pump2
+        {
+            [HarmonyPostfix]
+            public static void Postfix()
+            {
+                tactsuitVr.PlaybackHaptics("RecoilVest_" +
+                    (isRightHanded() ? "L" : "R"), 0.5f);
+                tactsuitVr.PlaybackHaptics("RecoilArm_" +
+                    (isRightHanded() ? "L" : "R"), 0.5f);
+            }
+        }
+        
+        [HarmonyPatch(typeof(TubeLoadedShells), "AddShell")]
+        public class bhaptics_Reload
+        {
+            [HarmonyPostfix]
+            public static void Postfix(bool chamberLoaded)
+            {
+                MelonLogger.Msg("RELOAD");
+                if (!chamberLoaded)
+                {
+                    tactsuitVr.PlaybackHaptics("RecoilArm_" +
+                        (isRightHanded() ? "L" : "R"), 0.5f);
+                    ForceTubeVRInterface.Rumble(60, 25f, ForceTubeVRChannel.pistol1);
+                }
+            }
+        }
     }
 }
