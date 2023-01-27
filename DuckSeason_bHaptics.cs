@@ -46,7 +46,7 @@ namespace DuckSeason_bHaptics
                     (isRightHanded() ? "R" : "L"));
                 tactsuitVr.PlaybackHaptics("RecoilArm_" +
                     (isRightHanded() ? "R" : "L"));
-                ForceTubeVRInterface.Shoot(255, 255, 50f, ForceTubeVRChannel.pistol1);
+                ForceTubeVRInterface.Shoot(255, 255, 50f, ForceTubeVRChannel.all);
             }
         }
         
@@ -87,7 +87,7 @@ namespace DuckSeason_bHaptics
                 {
                     tactsuitVr.PlaybackHaptics("RecoilArm_" +
                         (isRightHanded() ? "L" : "R"), 0.5f);
-                    ForceTubeVRInterface.Rumble(60, 25f, ForceTubeVRChannel.pistol1);
+                    ForceTubeVRInterface.Rumble(60, 25f, ForceTubeVRChannel.all);
                 }
             }
         }
